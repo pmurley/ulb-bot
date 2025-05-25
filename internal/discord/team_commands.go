@@ -11,16 +11,17 @@ import (
 
 // TeamFilters represents filtering options for team roster
 type TeamFilters struct {
-	Status   string // "40-man" or "minors"
-	Position string // Position to filter by
-	MinAge   int    // Minimum age
-	MaxAge   int    // Maximum age
+	Status        string // "40-man" or "minors"
+	Position      string // Position to filter by
+	MinAge        int    // Minimum age
+	MaxAge        int    // Maximum age
+	ShowContracts bool   // Whether to show contract details
 }
 
 // handleTeam displays the roster for a specific team with optional filters
 func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	if len(args) == 0 {
-		s.ChannelMessageSend(m.ChannelID, "Usage: `!team <team name> [--status=<40-man|minors>] [--position=<pos>] [--age=<min-max>]`")
+		s.ChannelMessageSend(m.ChannelID, "Usage: `!team <team name> [--status=<40-man|minors>] [--position=<pos>] [--age=<min-max>] [--contracts]`")
 		return
 	}
 
@@ -47,6 +48,12 @@ func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageC
 	
 	for _, arg := range args {
 		if strings.HasPrefix(arg, "--") {
+			// Handle --contracts flag (no value needed)
+			if arg == "--contracts" {
+				filters.ShowContracts = true
+				continue
+			}
+			
 			// Parse filter
 			parts := strings.SplitN(arg, "=", 2)
 			if len(parts) == 2 {
@@ -80,6 +87,8 @@ func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageC
 						filters.MinAge = age
 						filters.MaxAge = age
 					}
+				case "--contracts":
+					filters.ShowContracts = true
 				}
 			}
 		} else {
@@ -147,7 +156,16 @@ func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageC
 
 	// Build team roster embed
 	embed := buildTeamRosterEmbed(teamName, filteredPlayers, filters)
-	s.ChannelMessageSendEmbed(m.ChannelID, embed)
+	
+	hm.logger.Info("Sending embed for team: ", teamName, " with ", len(filteredPlayers), " players")
+	
+	_, err = s.ChannelMessageSendEmbed(m.ChannelID, embed)
+	if err != nil {
+		hm.logger.Error("Failed to send embed: ", err)
+		// Try sending a simple text message as fallback
+		fallbackMsg := fmt.Sprintf("Error displaying team roster for %s (%d players). Error: %v", teamName, len(filteredPlayers), err)
+		s.ChannelMessageSend(m.ChannelID, fallbackMsg)
+	}
 }
 
 // applyTeamFilters applies the specified filters to the player list
@@ -232,7 +250,7 @@ func buildTeamRosterEmbed(teamName string, players models.PlayerList, filters Te
 
 	// Build filter description
 	filterDesc := ""
-	if filters.Status != "" || filters.Position != "" || filters.MinAge > 0 || filters.MaxAge > 0 {
+	if filters.Status != "" || filters.Position != "" || filters.MinAge > 0 || filters.MaxAge > 0 || filters.ShowContracts {
 		filterParts := []string{}
 		if filters.Status != "" {
 			filterParts = append(filterParts, fmt.Sprintf("Status: %s", filters.Status))
@@ -251,6 +269,9 @@ func buildTeamRosterEmbed(teamName string, players models.PlayerList, filters Te
 				filterParts = append(filterParts, fmt.Sprintf("Age: %d-%d", filters.MinAge, filters.MaxAge))
 			}
 		}
+		if filters.ShowContracts {
+			filterParts = append(filterParts, "Showing Contracts")
+		}
 		filterDesc = "\n*Filters: " + strings.Join(filterParts, ", ") + "*"
 	}
 
@@ -267,16 +288,21 @@ func buildTeamRosterEmbed(teamName string, players models.PlayerList, filters Te
 		if players, exists := positionGroups[pos]; exists && len(players) > 0 {
 			fieldValue := ""
 			for _, player := range players {
-				salary2025 := "N/A"
-				if sal, ok := player.GetSalary(year); ok {
-					salary2025 = "$" + formatNumberShort(sal)
-				} else if player.IsFreeAgent(year) {
-					salary2025 = "FA"
+				// Build player line based on whether contracts are shown
+				if filters.ShowContracts {
+					salary2025 := "N/A"
+					if sal, ok := player.GetSalary(year); ok {
+						salary2025 = "$" + formatNumberShort(sal)
+					} else if player.IsFreeAgent(year) {
+						salary2025 = "FA"
+					}
+					fieldValue += fmt.Sprintf("**%s** (%d, %s) - %s\n", 
+						player.Name, player.Age, player.MLBTeam, salary2025)
+				} else {
+					// Without contracts, just show name, age, and team
+					fieldValue += fmt.Sprintf("**%s** (%d, %s)\n", 
+						player.Name, player.Age, player.MLBTeam)
 				}
-				
-				// Include age and MLB team
-				fieldValue += fmt.Sprintf("**%s** (%d, %s) - %s\n", 
-					player.Name, player.Age, player.MLBTeam, salary2025)
 			}
 			
 			embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{

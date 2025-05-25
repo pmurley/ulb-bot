@@ -94,7 +94,8 @@ func (hm *HandlerManager) handleHelp(s *discordgo.Session, m *discordgo.MessageC
   Options:
     --status=<40-man|minors>  - Filter by roster status
     --position=<pos>          - Filter by position (C, 1B, SS, OF, SP, etc)
-    --age=<range>             - Filter by age (e.g., 20-25, 25+, 30)
+    --age=<range>             - Filter by age (e.g., 20-25, 25+, 30, 22-)
+    --contracts               - Show contract details for each player
   Example: !team Yankees --status=40-man --position=SP --age=25+
 !trade <players> for <players> - Analyze a trade
   Examples:
