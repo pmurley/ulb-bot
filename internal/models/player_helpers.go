@@ -11,10 +11,10 @@ type PlayerList []Player
 // FilterByTeam returns players belonging to a specific ULB team
 func (pl PlayerList) FilterByTeam(teamName string) PlayerList {
 	var filtered PlayerList
-	teamLower := strings.ToLower(teamName)
+	teamLower := strings.ToLower(strings.TrimSpace(teamName))
 	
 	for _, p := range pl {
-		if strings.ToLower(p.ULBTeam) == teamLower {
+		if strings.ToLower(strings.TrimSpace(p.ULBTeam)) == teamLower {
 			filtered = append(filtered, p)
 		}
 	}

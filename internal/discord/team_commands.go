@@ -85,15 +85,23 @@ func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageC
 		allTeams := getAllTeamNames(players)
 		suggestions := findSimilarTeams(teamName, allTeams)
 		
-		msg := fmt.Sprintf("No team found matching '%s'", teamName)
-		if len(suggestions) > 0 {
-			msg += "\n\nDid you mean:\n"
+		if len(suggestions) == 1 {
+			// Auto-select the single suggestion
+			teamName = suggestions[0]
+			teamPlayers = players.FilterByTeam(teamName)
+		} else if len(suggestions) > 1 {
+			// Multiple suggestions - ask user to choose
+			msg := fmt.Sprintf("No team found matching '%s'\n\nDid you mean:\n", teamName)
 			for _, team := range suggestions {
 				msg += fmt.Sprintf("• %s\n", team)
 			}
+			s.ChannelMessageSend(m.ChannelID, msg)
+			return
+		} else {
+			// No suggestions found
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("No team found matching '%s'", teamName))
+			return
 		}
-		s.ChannelMessageSend(m.ChannelID, msg)
-		return
 	}
 
 	// Apply filters
