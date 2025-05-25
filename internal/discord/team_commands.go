@@ -9,15 +9,66 @@ import (
 	"github.com/pmurley/ulb-bot/internal/models"
 )
 
-// handleTeam displays the roster for a specific team
+// TeamFilters represents filtering options for team roster
+type TeamFilters struct {
+	Status   string // "40-man" or "minors"
+	Position string // Position to filter by
+	MinAge   int    // Minimum age
+	MaxAge   int    // Maximum age
+}
+
+// handleTeam displays the roster for a specific team with optional filters
 func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	if len(args) == 0 {
-		s.ChannelMessageSend(m.ChannelID, "Usage: `!team <team name>`")
+		s.ChannelMessageSend(m.ChannelID, "Usage: `!team <team name> [--status=<40-man|minors>] [--position=<pos>] [--age=<min-max>]`")
 		return
 	}
 
-	// Join args to handle multi-word team names
-	teamName := strings.Join(args, " ")
+	// Parse args to separate team name from filters
+	teamNameParts := []string{}
+	filters := TeamFilters{}
+	
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "--") {
+			// Parse filter
+			parts := strings.SplitN(arg, "=", 2)
+			if len(parts) == 2 {
+				switch parts[0] {
+				case "--status":
+					filters.Status = strings.ToLower(parts[1])
+				case "--position", "--pos":
+					filters.Position = strings.ToUpper(parts[1])
+				case "--age":
+					// Parse age range (e.g., "20-25" or "25+")
+					if strings.Contains(parts[1], "-") {
+						ageParts := strings.Split(parts[1], "-")
+						if len(ageParts) == 2 {
+							fmt.Sscanf(ageParts[0], "%d", &filters.MinAge)
+							fmt.Sscanf(ageParts[1], "%d", &filters.MaxAge)
+						}
+					} else if strings.HasSuffix(parts[1], "+") {
+						fmt.Sscanf(parts[1], "%d+", &filters.MinAge)
+						filters.MaxAge = 99
+					} else {
+						// Single age value
+						var age int
+						fmt.Sscanf(parts[1], "%d", &age)
+						filters.MinAge = age
+						filters.MaxAge = age
+					}
+				}
+			}
+		} else {
+			teamNameParts = append(teamNameParts, arg)
+		}
+	}
+	
+	if len(teamNameParts) == 0 {
+		s.ChannelMessageSend(m.ChannelID, "Please specify a team name")
+		return
+	}
+
+	teamName := strings.Join(teamNameParts, " ")
 
 	// Get players from cache (auto-reload if needed)
 	players, err := hm.ensurePlayersLoaded()
@@ -45,13 +96,62 @@ func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageC
 		return
 	}
 
+	// Apply filters
+	filteredPlayers := applyTeamFilters(teamPlayers, filters)
+	
+	if len(filteredPlayers) == 0 {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("No players found for %s with the specified filters", teamName))
+		return
+	}
+
 	// Build team roster embed
-	embed := buildTeamRosterEmbed(teamName, teamPlayers)
+	embed := buildTeamRosterEmbed(teamName, filteredPlayers, filters)
 	s.ChannelMessageSendEmbed(m.ChannelID, embed)
 }
 
+// applyTeamFilters applies the specified filters to the player list
+func applyTeamFilters(players models.PlayerList, filters TeamFilters) models.PlayerList {
+	filtered := players
+	
+	// Filter by status
+	if filters.Status != "" {
+		var statusFiltered models.PlayerList
+		for _, p := range filtered {
+			statusLower := strings.ToLower(p.Status)
+			if filters.Status == "40-man" && strings.Contains(statusLower, "40") {
+				statusFiltered = append(statusFiltered, p)
+			} else if filters.Status == "minors" && !strings.Contains(statusLower, "40") {
+				statusFiltered = append(statusFiltered, p)
+			}
+		}
+		filtered = statusFiltered
+	}
+	
+	// Filter by position
+	if filters.Position != "" {
+		filtered = filtered.FilterByPosition(filters.Position)
+	}
+	
+	// Filter by age
+	if filters.MinAge > 0 || filters.MaxAge > 0 {
+		var ageFiltered models.PlayerList
+		for _, p := range filtered {
+			if filters.MinAge > 0 && p.Age < filters.MinAge {
+				continue
+			}
+			if filters.MaxAge > 0 && p.Age > filters.MaxAge {
+				continue
+			}
+			ageFiltered = append(ageFiltered, p)
+		}
+		filtered = ageFiltered
+	}
+	
+	return filtered
+}
+
 // buildTeamRosterEmbed creates a rich embed for team roster
-func buildTeamRosterEmbed(teamName string, players models.PlayerList) *discordgo.MessageEmbed {
+func buildTeamRosterEmbed(teamName string, players models.PlayerList, filters TeamFilters) *discordgo.MessageEmbed {
 	// Group players by position
 	positionGroups := make(map[string][]models.Player)
 	positionOrder := []string{"C", "1B", "2B", "3B", "SS", "OF", "DH", "SP", "RP"}
@@ -89,11 +189,33 @@ func buildTeamRosterEmbed(teamName string, players models.PlayerList) *discordgo
 		}
 	}
 
+	// Build filter description
+	filterDesc := ""
+	if filters.Status != "" || filters.Position != "" || filters.MinAge > 0 || filters.MaxAge > 0 {
+		filterParts := []string{}
+		if filters.Status != "" {
+			filterParts = append(filterParts, fmt.Sprintf("Status: %s", filters.Status))
+		}
+		if filters.Position != "" {
+			filterParts = append(filterParts, fmt.Sprintf("Position: %s", filters.Position))
+		}
+		if filters.MinAge > 0 || filters.MaxAge > 0 {
+			if filters.MinAge == filters.MaxAge {
+				filterParts = append(filterParts, fmt.Sprintf("Age: %d", filters.MinAge))
+			} else if filters.MaxAge == 99 {
+				filterParts = append(filterParts, fmt.Sprintf("Age: %d+", filters.MinAge))
+			} else {
+				filterParts = append(filterParts, fmt.Sprintf("Age: %d-%d", filters.MinAge, filters.MaxAge))
+			}
+		}
+		filterDesc = "\n*Filters: " + strings.Join(filterParts, ", ") + "*"
+	}
+
 	// Build embed
 	embed := &discordgo.MessageEmbed{
 		Title:       fmt.Sprintf("%s Roster", teamName),
 		Color:       getTeamColor(teamName),
-		Description: fmt.Sprintf("**%d Players | 2025 Payroll: $%s**", len(players), formatNumber(totalPayroll)),
+		Description: fmt.Sprintf("**%d Players | 2025 Payroll: $%s**%s", len(players), formatNumber(totalPayroll), filterDesc),
 		Fields:      []*discordgo.MessageEmbedField{},
 	}
 
