@@ -24,6 +24,23 @@ func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageC
 		return
 	}
 
+	// Special debug option to list all teams
+	if len(args) == 1 && args[0] == "--list" {
+		players, err := hm.ensurePlayersLoaded()
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Failed to load player data: " + err.Error())
+			return
+		}
+		
+		allTeams := getAllTeamNames(players)
+		msg := fmt.Sprintf("**All Teams (%d):**\n", len(allTeams))
+		for _, team := range allTeams {
+			msg += fmt.Sprintf("• %s\n", team)
+		}
+		s.ChannelMessageSend(m.ChannelID, msg)
+		return
+	}
+
 	// Parse args to separate team name from filters
 	teamNameParts := []string{}
 	filters := TeamFilters{}

@@ -76,7 +76,10 @@ func (hm *HandlerManager) messageCreate(s *discordgo.Session, m *discordgo.Messa
 	args := parts[1:]
 
 	if handler, exists := hm.commands[command]; exists {
+		hm.logger.Info("Processing command: ", command, " with args: ", args)
 		handler(s, m, args)
+	} else {
+		hm.logger.Warn("Unknown command: ", command)
 	}
 }
 
