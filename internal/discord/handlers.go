@@ -54,6 +54,7 @@ func (hm *HandlerManager) registerCommands() {
 	hm.commands["player"] = hm.handlePlayer
 	hm.commands["players"] = hm.handlePlayers
 	hm.commands["trade"] = hm.handleTrade
+	hm.commands["team"] = hm.handleTeam
 }
 
 func (hm *HandlerManager) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -86,6 +87,7 @@ func (hm *HandlerManager) handleHelp(s *discordgo.Session, m *discordgo.MessageC
 !reload        - Force reload data from Google Sheets
 !player <name> - Look up player information
 !players <name1>, <name2>, ... - Look up multiple players
+!team <name>   - Show team roster and payroll
 !trade <players> for <players> - Analyze a trade
   Examples:
     !trade Ohtani for Judge
