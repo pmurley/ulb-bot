@@ -56,12 +56,19 @@ func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageC
 				case "--position", "--pos":
 					filters.Position = strings.ToUpper(parts[1])
 				case "--age":
-					// Parse age range (e.g., "20-25" or "25+")
+					// Parse age range (e.g., "20-25", "25+", "22-")
 					if strings.Contains(parts[1], "-") {
 						ageParts := strings.Split(parts[1], "-")
 						if len(ageParts) == 2 {
-							fmt.Sscanf(ageParts[0], "%d", &filters.MinAge)
-							fmt.Sscanf(ageParts[1], "%d", &filters.MaxAge)
+							// Handle "22-" (max age only)
+							if ageParts[0] != "" && ageParts[1] == "" {
+								fmt.Sscanf(ageParts[0], "%d", &filters.MaxAge)
+								filters.MinAge = 0
+							// Handle "20-25" (range)
+							} else if ageParts[0] != "" && ageParts[1] != "" {
+								fmt.Sscanf(ageParts[0], "%d", &filters.MinAge)
+								fmt.Sscanf(ageParts[1], "%d", &filters.MaxAge)
+							}
 						}
 					} else if strings.HasSuffix(parts[1], "+") {
 						fmt.Sscanf(parts[1], "%d+", &filters.MinAge)
@@ -102,10 +109,19 @@ func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageC
 		allTeams := getAllTeamNames(players)
 		suggestions := findSimilarTeams(teamName, allTeams)
 		
+		hm.logger.Info("Team search: ", teamName, " found ", len(suggestions), " suggestions: ", suggestions)
+		
 		if len(suggestions) == 1 {
 			// Auto-select the single suggestion
 			teamName = suggestions[0]
 			teamPlayers = players.FilterByTeam(teamName)
+			hm.logger.Info("Auto-selected team: ", teamName, " with ", len(teamPlayers), " players")
+			
+			// Double-check we found players
+			if len(teamPlayers) == 0 {
+				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Team '%s' exists but has no players", teamName))
+				return
+			}
 		} else if len(suggestions) > 1 {
 			// Multiple suggestions - ask user to choose
 			msg := fmt.Sprintf("No team found matching '%s'\n\nDid you mean:\n", teamName)
@@ -229,6 +245,8 @@ func buildTeamRosterEmbed(teamName string, players models.PlayerList, filters Te
 				filterParts = append(filterParts, fmt.Sprintf("Age: %d", filters.MinAge))
 			} else if filters.MaxAge == 99 {
 				filterParts = append(filterParts, fmt.Sprintf("Age: %d+", filters.MinAge))
+			} else if filters.MinAge == 0 && filters.MaxAge > 0 {
+				filterParts = append(filterParts, fmt.Sprintf("Age: %d-", filters.MaxAge))
 			} else {
 				filterParts = append(filterParts, fmt.Sprintf("Age: %d-%d", filters.MinAge, filters.MaxAge))
 			}
