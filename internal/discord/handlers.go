@@ -90,13 +90,13 @@ func (hm *HandlerManager) handleHelp(s *discordgo.Session, m *discordgo.MessageC
 !reload        - Force reload data from Google Sheets
 !player <name> - Look up player information
 !players <name1>, <name2>, ... - Look up multiple players
-!team <name>   - Show team roster and payroll
+!team <name>   - Show team roster and payroll (defaults to 40-man roster)
   Options:
-    --status=<40-man|minors>  - Filter by roster status
-    --position=<pos>          - Filter by position (C, 1B, SS, OF, SP, etc)
-    --age=<range>             - Filter by age (e.g., 20-25, 25+, 30, 22-)
-    --contracts               - Show contract details for each player
-  Example: !team Yankees --status=40-man --position=SP --age=25+
+    --status=<40-man|minors|all> - Filter by roster status (default: 40-man)
+    --position=<pos>             - Filter by position (C, 1B, SS, OF, SP, MI, CI, IF, UT, etc)
+    --age=<range>                - Filter by age (e.g., 20-25, 25+, 30, 22-)
+    --contracts                  - Show contract details for each player
+  Example: !team Berries --status=all --position=SP --age=25+
 !trade <players> for <players> - Analyze a trade
   Examples:
     !trade Ohtani for Judge

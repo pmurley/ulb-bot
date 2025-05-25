@@ -39,14 +39,34 @@ func (pl PlayerList) FilterByPosition(position string) PlayerList {
 	var filtered PlayerList
 	posLower := strings.ToLower(position)
 	
+	// Define composite positions
+	compositePositions := map[string][]string{
+		"mi": {"2b", "ss", "mi"},     // Middle Infield (including players listed as just MI)
+		"ci": {"1b", "3b"},           // Corner Infield
+		"if": {"1b", "2b", "3b", "ss"}, // All Infield
+		"of": {"lf", "cf", "rf", "of"}, // All Outfield (including generic OF)
+		"ut": {"ut"},                  // Utility (players listed as UT)
+	}
+	
+	// Check if this is a composite position
+	validPositions := []string{posLower}
+	if composites, exists := compositePositions[posLower]; exists {
+		validPositions = composites
+	}
+	
 	for _, p := range pl {
 		positions := strings.Split(strings.ToLower(p.Position), ",")
 		for _, pos := range positions {
-			if strings.TrimSpace(pos) == posLower {
-				filtered = append(filtered, p)
-				break
+			pos = strings.TrimSpace(pos)
+			// Check if player's position matches any of the valid positions
+			for _, validPos := range validPositions {
+				if pos == validPos {
+					filtered = append(filtered, p)
+					goto nextPlayer
+				}
 			}
 		}
+		nextPlayer:
 	}
 	return filtered
 }

@@ -21,7 +21,7 @@ type TeamFilters struct {
 // handleTeam displays the roster for a specific team with optional filters
 func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	if len(args) == 0 {
-		s.ChannelMessageSend(m.ChannelID, "Usage: `!team <team name> [--status=<40-man|minors>] [--position=<pos>] [--age=<min-max>] [--contracts]`")
+		s.ChannelMessageSend(m.ChannelID, "Usage: `!team <team name> [--status=<40-man|minors|all>] [--position=<pos>] [--age=<min-max>] [--contracts]`")
 		return
 	}
 
@@ -44,7 +44,9 @@ func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageC
 
 	// Parse args to separate team name from filters
 	teamNameParts := []string{}
-	filters := TeamFilters{}
+	filters := TeamFilters{
+		Status: "40-man", // Default to 40-man roster only
+	}
 	
 	for _, arg := range args {
 		if strings.HasPrefix(arg, "--") {
@@ -173,7 +175,7 @@ func applyTeamFilters(players models.PlayerList, filters TeamFilters) models.Pla
 	filtered := players
 	
 	// Filter by status
-	if filters.Status != "" {
+	if filters.Status != "" && filters.Status != "all" {
 		var statusFiltered models.PlayerList
 		for _, p := range filtered {
 			statusLower := strings.ToLower(p.Status)
@@ -185,6 +187,7 @@ func applyTeamFilters(players models.PlayerList, filters TeamFilters) models.Pla
 		}
 		filtered = statusFiltered
 	}
+	// If status is "all", don't filter by status
 	
 	// Filter by position
 	if filters.Position != "" {
@@ -213,7 +216,7 @@ func applyTeamFilters(players models.PlayerList, filters TeamFilters) models.Pla
 func buildTeamRosterEmbed(teamName string, players models.PlayerList, filters TeamFilters) *discordgo.MessageEmbed {
 	// Group players by position
 	positionGroups := make(map[string][]models.Player)
-	positionOrder := []string{"C", "1B", "2B", "3B", "SS", "OF", "DH", "SP", "RP"}
+	positionOrder := []string{"C", "1B", "2B", "3B", "SS", "MI", "OF", "DH", "UT", "SP", "RP"}
 	
 	for _, player := range players {
 		// Parse positions (could be comma-separated)
@@ -252,7 +255,8 @@ func buildTeamRosterEmbed(teamName string, players models.PlayerList, filters Te
 	filterDesc := ""
 	if filters.Status != "" || filters.Position != "" || filters.MinAge > 0 || filters.MaxAge > 0 || filters.ShowContracts {
 		filterParts := []string{}
-		if filters.Status != "" {
+		if filters.Status != "" && filters.Status != "40-man" {
+			// Only show status in filter description if it's not the default
 			filterParts = append(filterParts, fmt.Sprintf("Status: %s", filters.Status))
 		}
 		if filters.Position != "" {
