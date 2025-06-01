@@ -21,7 +21,7 @@ func NewClient(spreadsheetID string) (*Client, error) {
 	return &Client{
 		spreadsheetID: spreadsheetID,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second, // Increased timeout for large sheets
+			Timeout: 30 * time.Second,
 		},
 	}, nil
 }

@@ -2,6 +2,7 @@ package bot
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/pmurley/ulb-bot/internal/cache"
@@ -18,6 +19,7 @@ type Bot struct {
 	dataCache    *cache.Cache
 	sheetsClient *sheets.Client
 	handlers     *discord.HandlerManager
+	stopChan     chan struct{}
 }
 
 func New(cfg *config.Config, log *logger.Logger) (*Bot, error) {
@@ -27,8 +29,8 @@ func New(cfg *config.Config, log *logger.Logger) (*Bot, error) {
 	}
 
 	// Set intents - we need these for DMs and message content
-	session.Identify.Intents = discordgo.IntentsGuildMessages | 
-		discordgo.IntentsDirectMessages | 
+	session.Identify.Intents = discordgo.IntentsGuildMessages |
+		discordgo.IntentsDirectMessages |
 		discordgo.IntentsDirectMessageReactions |
 		discordgo.IntentsMessageContent
 
@@ -43,6 +45,7 @@ func New(cfg *config.Config, log *logger.Logger) (*Bot, error) {
 		logger:       log,
 		dataCache:    cache.New(cfg.CacheDuration),
 		sheetsClient: sheetsClient,
+		stopChan:     make(chan struct{}),
 	}
 
 	b.handlers = discord.NewHandlerManager(b.session, cfg, log, b.dataCache, sheetsClient)
@@ -57,13 +60,55 @@ func (b *Bot) Start() error {
 		return fmt.Errorf("failed to open Discord session: %w", err)
 	}
 
-	if err := b.sheetsClient.LoadInitialData(b.dataCache); err != nil {
+	// Load initial data
+	if err := b.loadData(); err != nil {
 		b.logger.Error("Failed to load initial data from sheets:", err)
 	}
+
+	// Start background data loader
+	go b.backgroundDataLoader()
 
 	return nil
 }
 
 func (b *Bot) Stop() error {
+	close(b.stopChan)
 	return b.session.Close()
+}
+
+// backgroundDataLoader runs in the background and reloads data every 30 minutes
+func (b *Bot) backgroundDataLoader() {
+	ticker := time.NewTicker(30 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			b.logger.Info("Starting background data reload")
+			if err := b.loadData(); err != nil {
+				b.logger.Error("Background data reload failed:", err)
+			} else {
+				b.logger.Info("Background data reload completed successfully")
+			}
+		case <-b.stopChan:
+			b.logger.Info("Stopping background data loader")
+			return
+		}
+	}
+}
+
+// loadData loads data from sheets, ensuring no concurrent loads
+func (b *Bot) loadData() error {
+	// Check if already loading
+	if b.dataCache.IsLoading() {
+		b.logger.Debug("Data load already in progress, skipping")
+		return nil
+	}
+
+	// Mark as loading
+	b.dataCache.SetLoading(true)
+	defer b.dataCache.SetLoading(false)
+
+	// Perform the actual load
+	return b.sheetsClient.LoadInitialData(b.dataCache)
 }

@@ -109,7 +109,16 @@ func (hm *HandlerManager) handleHelp(s *discordgo.Session, m *discordgo.MessageC
 }
 
 func (hm *HandlerManager) handleReload(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
-	hm.cache.Flush()
+	// Check if already loading
+	if hm.cache.IsLoading() {
+		s.ChannelMessageSend(m.ChannelID, "Data reload already in progress...")
+		return
+	}
+
+	// Mark as loading
+	hm.cache.SetLoading(true)
+	defer hm.cache.SetLoading(false)
+
 	if err := hm.sheetsClient.LoadInitialData(hm.cache); err != nil {
 		s.ChannelMessageSend(m.ChannelID, "Failed to reload data: "+err.Error())
 		return
@@ -117,20 +126,11 @@ func (hm *HandlerManager) handleReload(s *discordgo.Session, m *discordgo.Messag
 	s.ChannelMessageSend(m.ChannelID, "Data reloaded successfully!")
 }
 
-// ensurePlayersLoaded checks if players are in cache and auto-reloads if needed
+// ensurePlayersLoaded returns cached player data without blocking
 func (hm *HandlerManager) ensurePlayersLoaded() (models.PlayerList, error) {
 	players, found := hm.cache.GetPlayers()
 	if !found {
-		// Auto-reload if cache is empty
-		hm.logger.Info("Cache expired, auto-reloading player data...")
-		if err := hm.sheetsClient.LoadInitialData(hm.cache); err != nil {
-			return nil, err
-		}
-		// Try again after reload
-		players, found = hm.cache.GetPlayers()
-		if !found {
-			return nil, fmt.Errorf("failed to load player data after reload")
-		}
+		return nil, fmt.Errorf("player data not available yet, please try again in a moment")
 	}
 	return players, nil
 }

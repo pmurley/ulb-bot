@@ -34,3 +34,4 @@ Thumbs.db
 
 # Google credentials (if you decide to use them later)
 configs/google-credentials.json
+ulb-bot
