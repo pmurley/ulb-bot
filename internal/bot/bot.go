@@ -68,6 +68,9 @@ func (b *Bot) Start() error {
 	// Start background data loader
 	go b.backgroundDataLoader()
 
+	// Start waiver monitor
+	b.startWaiverMonitor()
+
 	return nil
 }
 

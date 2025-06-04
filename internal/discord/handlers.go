@@ -55,6 +55,7 @@ func (hm *HandlerManager) registerCommands() {
 	hm.commands["players"] = hm.handlePlayers
 	hm.commands["trade"] = hm.handleTrade
 	hm.commands["team"] = hm.handleTeam
+	hm.commands["dfa"] = hm.handleDFA
 }
 
 func (hm *HandlerManager) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -98,6 +99,7 @@ func (hm *HandlerManager) handleHelp(s *discordgo.Session, m *discordgo.MessageC
     --contracts                  - Show contract details for each player
   Example: !team Berries --status=all --position=SP --age=25+
 !trade <players> for <players> - Analyze a trade
+!dfa <playerName> - Designate a player for assignment (only in #dfa-waivers channel)
   Examples:
     !trade Ohtani for Judge
     !trade Ohtani (retain 25%) for Judge

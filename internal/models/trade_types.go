@@ -11,12 +11,12 @@ func (tp *TradedPlayer) GetRetainedSalary(year int) int {
 	if tp.RetentionPercent == 0 {
 		return 0
 	}
-	
+
 	salary, ok := tp.Player.GetSalary(year)
 	if !ok {
 		return 0
 	}
-	
+
 	return int(float64(salary) * tp.RetentionPercent / 100.0)
 }
 
@@ -26,7 +26,7 @@ func (tp *TradedPlayer) GetTradedSalary(year int) int {
 	if !ok {
 		return 0
 	}
-	
+
 	retained := tp.GetRetainedSalary(year)
 	return salary - retained
 }

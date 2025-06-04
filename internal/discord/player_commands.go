@@ -21,13 +21,13 @@ func (hm *HandlerManager) handlePlayer(s *discordgo.Session, m *discordgo.Messag
 	// Get players from cache (auto-reload if needed)
 	players, err := hm.ensurePlayersLoaded()
 	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, "Failed to load player data: " + err.Error())
+		s.ChannelMessageSend(m.ChannelID, "Failed to load player data: "+err.Error())
 		return
 	}
 
 	// Try exact match first
 	exactMatches := players.FindByExactName(playerName)
-	
+
 	// If exact matches found, display all of them
 	if len(exactMatches) > 0 {
 		if len(exactMatches) == 1 {
@@ -53,14 +53,14 @@ func (hm *HandlerManager) handlePlayer(s *discordgo.Session, m *discordgo.Messag
 		}
 		return
 	}
-	
+
 	// No exact match, try partial search
 	matches := players.SearchByName(playerName)
 	if len(matches) == 0 {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("No player found matching '%s'", playerName))
 		return
 	}
-	
+
 	// If multiple matches, show them
 	if len(matches) > 1 {
 		msg := fmt.Sprintf("Multiple players found matching '%s':\n", playerName)
@@ -75,7 +75,7 @@ func (hm *HandlerManager) handlePlayer(s *discordgo.Session, m *discordgo.Messag
 		s.ChannelMessageSend(m.ChannelID, msg)
 		return
 	}
-	
+
 	// Single match found
 	embed := buildPlayerEmbed(&matches[0])
 	s.ChannelMessageSendEmbed(m.ChannelID, embed)
@@ -120,7 +120,6 @@ func buildPlayerEmbed(p *models.Player) *discordgo.MessageEmbed {
 		})
 	}
 
-
 	// Add status
 	if p.Status != "" {
 		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
@@ -156,7 +155,7 @@ func buildPlayerEmbed(p *models.Player) *discordgo.MessageEmbed {
 func buildContractInfo(p *models.Player) string {
 	var parts []string
 	currentYear := 2025 // We should make this dynamic eventually
-	
+
 	// Look for contract info for the next few years
 	for year := currentYear; year <= currentYear+5; year++ {
 		if value, exists := p.Contract[year]; exists && value != "" {
@@ -198,7 +197,7 @@ func (hm *HandlerManager) handlePlayers(s *discordgo.Session, m *discordgo.Messa
 	// Get players from cache (auto-reload if needed)
 	players, err := hm.ensurePlayersLoaded()
 	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, "Failed to load player data: " + err.Error())
+		s.ChannelMessageSend(m.ChannelID, "Failed to load player data: "+err.Error())
 		return
 	}
 
@@ -214,7 +213,7 @@ func (hm *HandlerManager) handlePlayers(s *discordgo.Session, m *discordgo.Messa
 
 		// Try exact match first
 		exactMatches := players.FindByExactName(name)
-		
+
 		if len(exactMatches) > 0 {
 			// Add all exact matches
 			for _, player := range exactMatches {
@@ -266,13 +265,13 @@ func buildCompactPlayerEmbed(p *models.Player) *discordgo.MessageEmbed {
 
 	// Build description with key info
 	var desc []string
-	
+
 	// Basic info line
 	teamInfo := p.ULBTeam
 	if teamInfo == "" {
 		teamInfo = "Free Agent"
 	}
-	desc = append(desc, fmt.Sprintf("**%s** | %s | Age %d", 
+	desc = append(desc, fmt.Sprintf("**%s** | %s | Age %d",
 		p.Position, p.MLBTeam, p.Age))
 	desc = append(desc, fmt.Sprintf("**ULB:** %s", teamInfo))
 
@@ -288,7 +287,7 @@ func buildCompactPlayerEmbed(p *models.Player) *discordgo.MessageEmbed {
 			}
 		}
 	}
-	
+
 	if len(contractParts) > 0 {
 		desc = append(desc, "**Contract:** "+strings.Join(contractParts, " | "))
 	}
@@ -304,7 +303,7 @@ func formatNumber(n int) string {
 	if len(str) <= 3 {
 		return str
 	}
-	
+
 	result := ""
 	for i, digit := range str {
 		if i > 0 && (len(str)-i)%3 == 0 {

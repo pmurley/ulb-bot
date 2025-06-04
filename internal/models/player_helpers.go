@@ -12,7 +12,7 @@ type PlayerList []Player
 func (pl PlayerList) FilterByTeam(teamName string) PlayerList {
 	var filtered PlayerList
 	teamLower := strings.ToLower(strings.TrimSpace(teamName))
-	
+
 	for _, p := range pl {
 		if strings.ToLower(strings.TrimSpace(p.ULBTeam)) == teamLower {
 			filtered = append(filtered, p)
@@ -25,7 +25,7 @@ func (pl PlayerList) FilterByTeam(teamName string) PlayerList {
 func (pl PlayerList) FilterByMLBTeam(mlbTeam string) PlayerList {
 	var filtered PlayerList
 	mlbLower := strings.ToLower(mlbTeam)
-	
+
 	for _, p := range pl {
 		if strings.ToLower(p.MLBTeam) == mlbLower {
 			filtered = append(filtered, p)
@@ -38,22 +38,22 @@ func (pl PlayerList) FilterByMLBTeam(mlbTeam string) PlayerList {
 func (pl PlayerList) FilterByPosition(position string) PlayerList {
 	var filtered PlayerList
 	posLower := strings.ToLower(position)
-	
+
 	// Define composite positions
 	compositePositions := map[string][]string{
-		"mi": {"2b", "ss", "mi"},     // Middle Infield (including players listed as just MI)
-		"ci": {"1b", "3b"},           // Corner Infield
+		"mi": {"2b", "ss", "mi"},       // Middle Infield (including players listed as just MI)
+		"ci": {"1b", "3b"},             // Corner Infield
 		"if": {"1b", "2b", "3b", "ss"}, // All Infield
 		"of": {"lf", "cf", "rf", "of"}, // All Outfield (including generic OF)
-		"ut": {"ut"},                  // Utility (players listed as UT)
+		"ut": {"ut"},                   // Utility (players listed as UT)
 	}
-	
+
 	// Check if this is a composite position
 	validPositions := []string{posLower}
 	if composites, exists := compositePositions[posLower]; exists {
 		validPositions = composites
 	}
-	
+
 	for _, p := range pl {
 		positions := strings.Split(strings.ToLower(p.Position), ",")
 		for _, pos := range positions {
@@ -66,7 +66,7 @@ func (pl PlayerList) FilterByPosition(position string) PlayerList {
 				}
 			}
 		}
-		nextPlayer:
+	nextPlayer:
 	}
 	return filtered
 }
@@ -75,7 +75,7 @@ func (pl PlayerList) FilterByPosition(position string) PlayerList {
 func (pl PlayerList) FilterByStatus(status string) PlayerList {
 	var filtered PlayerList
 	statusLower := strings.ToLower(status)
-	
+
 	for _, p := range pl {
 		if strings.ToLower(p.Status) == statusLower {
 			filtered = append(filtered, p)
@@ -88,7 +88,7 @@ func (pl PlayerList) FilterByStatus(status string) PlayerList {
 func (pl PlayerList) SearchByName(search string) PlayerList {
 	var matches PlayerList
 	searchLower := strings.ToLower(search)
-	
+
 	for _, p := range pl {
 		if strings.Contains(strings.ToLower(p.Name), searchLower) {
 			matches = append(matches, p)
@@ -101,7 +101,7 @@ func (pl PlayerList) SearchByName(search string) PlayerList {
 func (pl PlayerList) FindByExactName(name string) []Player {
 	nameLower := strings.ToLower(name)
 	var matches []Player
-	
+
 	for _, p := range pl {
 		if strings.ToLower(p.Name) == nameLower {
 			matches = append(matches, p)
@@ -113,7 +113,7 @@ func (pl PlayerList) FindByExactName(name string) []Player {
 // GetFreeAgents returns players who are free agents in the specified year
 func (pl PlayerList) GetFreeAgents(year int) PlayerList {
 	var freeAgents PlayerList
-	
+
 	for _, p := range pl {
 		if p.IsFreeAgent(year) {
 			freeAgents = append(freeAgents, p)
@@ -125,7 +125,7 @@ func (pl PlayerList) GetFreeAgents(year int) PlayerList {
 // GetUnownedPlayers returns players not on any ULB team
 func (pl PlayerList) GetUnownedPlayers() PlayerList {
 	var unowned PlayerList
-	
+
 	for _, p := range pl {
 		if p.ULBTeam == "" {
 			unowned = append(unowned, p)
@@ -162,7 +162,7 @@ func (pl PlayerList) GetTopPerformers(n int) PlayerList {
 	sorted := make(PlayerList, len(pl))
 	copy(sorted, pl)
 	sorted.SortByPoints()
-	
+
 	if n > len(sorted) {
 		n = len(sorted)
 	}
@@ -174,7 +174,7 @@ func (pl PlayerList) GetTopSalaries(year int, n int) PlayerList {
 	sorted := make(PlayerList, len(pl))
 	copy(sorted, pl)
 	sorted.SortBySalary(year)
-	
+
 	if n > len(sorted) {
 		n = len(sorted)
 	}
@@ -185,7 +185,7 @@ func (pl PlayerList) GetTopSalaries(year int, n int) PlayerList {
 func (pl PlayerList) GetTeamPayroll(teamName string, year int) int {
 	teamPlayers := pl.FilterByTeam(teamName)
 	total := 0
-	
+
 	for _, p := range teamPlayers {
 		if salary, ok := p.GetSalary(year); ok {
 			total += salary
@@ -197,7 +197,7 @@ func (pl PlayerList) GetTeamPayroll(teamName string, year int) int {
 // GetPositionEligible returns players eligible at multiple positions
 func (pl PlayerList) GetPositionEligible(positions []string) PlayerList {
 	var eligible PlayerList
-	
+
 	for _, p := range pl {
 		playerPositions := strings.Split(strings.ToLower(p.Position), ",")
 		for _, reqPos := range positions {
@@ -209,7 +209,7 @@ func (pl PlayerList) GetPositionEligible(positions []string) PlayerList {
 				}
 			}
 		}
-		nextPlayer:
+	nextPlayer:
 	}
 	return eligible
 }
@@ -217,7 +217,7 @@ func (pl PlayerList) GetPositionEligible(positions []string) PlayerList {
 // GroupByTeam returns a map of team name to players
 func (pl PlayerList) GroupByTeam() map[string]PlayerList {
 	grouped := make(map[string]PlayerList)
-	
+
 	for _, p := range pl {
 		if p.ULBTeam != "" {
 			grouped[p.ULBTeam] = append(grouped[p.ULBTeam], p)
@@ -229,7 +229,7 @@ func (pl PlayerList) GroupByTeam() map[string]PlayerList {
 // GroupByPosition returns a map of position to players
 func (pl PlayerList) GroupByPosition() map[string]PlayerList {
 	grouped := make(map[string]PlayerList)
-	
+
 	for _, p := range pl {
 		positions := strings.Split(p.Position, ",")
 		for _, pos := range positions {
@@ -255,27 +255,27 @@ type Stats struct {
 // GetStats returns aggregate statistics for the player list
 func (pl PlayerList) GetStats(year int) Stats {
 	stats := Stats{Count: len(pl)}
-	
+
 	salaryCount := 0
 	for _, p := range pl {
 		stats.TotalPoints += p.Points2024
-		
+
 		if salary, ok := p.GetSalary(year); ok {
 			stats.TotalSalary += salary
 			salaryCount++
 		}
-		
+
 		if p.IsFreeAgent(year) {
 			stats.FreeAgentCount++
 		}
 	}
-	
+
 	if stats.Count > 0 {
 		stats.AveragePoints = stats.TotalPoints / float64(stats.Count)
 	}
 	if salaryCount > 0 {
 		stats.AverageSalary = stats.TotalSalary / salaryCount
 	}
-	
+
 	return stats
 }

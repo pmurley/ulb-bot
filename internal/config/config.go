@@ -7,12 +7,12 @@ import (
 )
 
 type Config struct {
-	DiscordToken     string
-	GoogleSheetsID   string
-	GoogleAPIKey     string
-	CacheDuration    time.Duration
-	CommandPrefix    string
-	LogLevel         string
+	DiscordToken   string
+	GoogleSheetsID string
+	GoogleAPIKey   string
+	CacheDuration  time.Duration
+	CommandPrefix  string
+	LogLevel       string
 }
 
 func Load() (*Config, error) {
@@ -24,12 +24,12 @@ func Load() (*Config, error) {
 	}
 
 	return &Config{
-		DiscordToken:     os.Getenv("DISCORD_TOKEN"),
-		GoogleSheetsID:   os.Getenv("GOOGLE_SHEETS_ID"),
-		GoogleAPIKey:     os.Getenv("GOOGLE_API_KEY"),
-		CacheDuration:    cacheDuration,
-		CommandPrefix:    getEnvOrDefault("COMMAND_PREFIX", "!"),
-		LogLevel:         getEnvOrDefault("LOG_LEVEL", "info"),
+		DiscordToken:   os.Getenv("DISCORD_TOKEN"),
+		GoogleSheetsID: os.Getenv("GOOGLE_SHEETS_ID"),
+		GoogleAPIKey:   os.Getenv("GOOGLE_API_KEY"),
+		CacheDuration:  cacheDuration,
+		CommandPrefix:  getEnvOrDefault("COMMAND_PREFIX", "!"),
+		LogLevel:       getEnvOrDefault("LOG_LEVEL", "info"),
 	}, nil
 }
 

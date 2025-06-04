@@ -58,7 +58,7 @@ func (hm *HandlerManager) handleTrade(s *discordgo.Session, m *discordgo.Message
 	// Get players from cache (auto-reload if needed)
 	players, err := hm.ensurePlayersLoaded()
 	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, "Failed to load player data: " + err.Error())
+		s.ChannelMessageSend(m.ChannelID, "Failed to load player data: "+err.Error())
 		return
 	}
 
@@ -99,21 +99,21 @@ type PlayerWithRetention struct {
 func parsePlayerList(input string) []PlayerWithRetention {
 	names := strings.Split(input, ",")
 	var result []PlayerWithRetention
-	
+
 	for _, entry := range names {
 		entry = strings.TrimSpace(entry)
 		if entry == "" {
 			continue
 		}
-		
+
 		pwr := PlayerWithRetention{}
-		
+
 		// Check if this is cash considerations
 		lowerEntry := strings.ToLower(entry)
 		if strings.HasPrefix(lowerEntry, "cash") && strings.Contains(entry, "($") {
 			pwr.IsCash = true
 			pwr.Name = "Cash Considerations"
-			
+
 			// Extract cash amount
 			dollarIdx := strings.Index(entry, "($")
 			if dollarIdx != -1 {
@@ -143,7 +143,7 @@ func parsePlayerList(input string) []PlayerWithRetention {
 			// Check for retention syntax: "Player Name (retain X%)"
 			retainIdx := strings.Index(entry, "(retain")
 			pwr.Name = strings.TrimSpace(entry[:retainIdx])
-			
+
 			// Extract retention percentage
 			retainPart := entry[retainIdx:]
 			var percent float64
@@ -155,7 +155,7 @@ func parsePlayerList(input string) []PlayerWithRetention {
 			pwr.Name = entry
 			pwr.RetentionPercent = 0
 		}
-		
+
 		result = append(result, pwr)
 	}
 	return result
@@ -173,7 +173,7 @@ func findPlayersWithRetention(allPlayers models.PlayerList, playerInfo []PlayerW
 			totalCash += info.CashAmount
 			continue
 		}
-		
+
 		// Try exact match first
 		exactMatches := allPlayers.FindByExactName(info.Name)
 
@@ -212,13 +212,13 @@ func findPlayersWithRetention(allPlayers models.PlayerList, playerInfo []PlayerW
 
 // TradeAnalysis contains the analysis of a trade
 type TradeAnalysis struct {
-	Side1Players   []models.TradedPlayer
-	Side2Players   []models.TradedPlayer
-	Side1Teams     map[string][]models.TradedPlayer
-	Side2Teams     map[string][]models.TradedPlayer
-	Side1Cash      int // Cash being sent by side 1
-	Side2Cash      int // Cash being sent by side 2
-	PayrollChanges map[string]PayrollChange
+	Side1Players         []models.TradedPlayer
+	Side2Players         []models.TradedPlayer
+	Side1Teams           map[string][]models.TradedPlayer
+	Side2Teams           map[string][]models.TradedPlayer
+	Side1Cash            int // Cash being sent by side 1
+	Side2Cash            int // Cash being sent by side 2
+	PayrollChanges       map[string]PayrollChange
 	YearlyPayrollChanges map[string]map[int]PayrollChange // team -> year -> change
 }
 
@@ -233,13 +233,13 @@ type PayrollChange struct {
 // analyzeTrade performs analysis on the trade
 func (hm *HandlerManager) analyzeTrade(side1, side2 []models.TradedPlayer, side1Cash, side2Cash int, verbose bool) TradeAnalysis {
 	analysis := TradeAnalysis{
-		Side1Players:   side1,
-		Side2Players:   side2,
-		Side1Cash:      side1Cash,
-		Side2Cash:      side2Cash,
-		Side1Teams:     make(map[string][]models.TradedPlayer),
-		Side2Teams:     make(map[string][]models.TradedPlayer),
-		PayrollChanges: make(map[string]PayrollChange),
+		Side1Players:         side1,
+		Side2Players:         side2,
+		Side1Cash:            side1Cash,
+		Side2Cash:            side2Cash,
+		Side1Teams:           make(map[string][]models.TradedPlayer),
+		Side2Teams:           make(map[string][]models.TradedPlayer),
+		PayrollChanges:       make(map[string]PayrollChange),
 		YearlyPayrollChanges: make(map[string]map[int]PayrollChange),
 	}
 
@@ -336,11 +336,11 @@ func (hm *HandlerManager) analyzeTrade(side1, side2 []models.TradedPlayer, side1
 	if verbose {
 		for team := range involvedTeams {
 			analysis.YearlyPayrollChanges[team] = make(map[int]PayrollChange)
-			
+
 			// Calculate for years 2025-2030 (or until all players are FA)
 			for year := 2025; year <= 2030; year++ {
 				change := PayrollChange{TeamName: team}
-				
+
 				// Calculate total payroll before trade for this year
 				teamPlayers := allPlayers.FilterByTeam(team)
 				for _, p := range teamPlayers {
@@ -407,7 +407,7 @@ func buildTradeEmbed(analysis TradeAnalysis, verbose bool) *discordgo.MessageEmb
 		if side1Team == "" {
 			side1Team = "Unowned"
 		}
-		
+
 		if verbose {
 			// Show full contract details
 			contractYears := []string{}
@@ -419,7 +419,7 @@ func buildTradeEmbed(analysis TradeAnalysis, verbose bool) *discordgo.MessageEmb
 					} else if sal, ok := p.GetSalary(year); ok {
 						if tp.RetentionPercent > 0 {
 							retained := tp.GetRetainedSalary(year)
-							contractYears = append(contractYears, fmt.Sprintf("%d: Total $%s (retain %.0f%% = $%s)", 
+							contractYears = append(contractYears, fmt.Sprintf("%d: Total $%s (retain %.0f%% = $%s)",
 								year, formatNumberShort(sal), tp.RetentionPercent, formatNumberShort(retained)))
 						} else {
 							contractYears = append(contractYears, fmt.Sprintf("%d: $%s", year, formatNumberShort(sal)))
@@ -431,7 +431,7 @@ func buildTradeEmbed(analysis TradeAnalysis, verbose bool) *discordgo.MessageEmb
 			if contractInfo == "" {
 				contractInfo = "No contract info"
 			}
-			
+
 			desc := fmt.Sprintf("• **%s** (%s)\n  %s | %s\n  %s",
 				p.Name, side1Team, p.Position, p.MLBTeam, contractInfo)
 			if tp.RetentionPercent > 0 {
@@ -444,7 +444,7 @@ func buildTradeEmbed(analysis TradeAnalysis, verbose bool) *discordgo.MessageEmb
 			if sal, ok := p.GetSalary(2025); ok {
 				if tp.RetentionPercent > 0 {
 					retained := tp.GetRetainedSalary(2025)
-					salary2025 = fmt.Sprintf("Total $%s (retain %.0f%% = $%s)", 
+					salary2025 = fmt.Sprintf("Total $%s (retain %.0f%% = $%s)",
 						formatNumberShort(sal), tp.RetentionPercent, formatNumberShort(retained))
 				} else {
 					salary2025 = "$" + formatNumberShort(sal)
@@ -456,7 +456,7 @@ func buildTradeEmbed(analysis TradeAnalysis, verbose bool) *discordgo.MessageEmb
 				p.Name, side1Team, p.Position, p.MLBTeam, salary2025))
 		}
 	}
-	
+
 	// Add cash if present
 	if analysis.Side1Cash > 0 {
 		side1Desc = append(side1Desc, fmt.Sprintf("• **Cash Considerations**\n  $%s", formatNumber(analysis.Side1Cash)))
@@ -471,7 +471,7 @@ func buildTradeEmbed(analysis TradeAnalysis, verbose bool) *discordgo.MessageEmb
 		if side2Team == "" {
 			side2Team = "Unowned"
 		}
-		
+
 		if verbose {
 			// Show full contract details
 			contractYears := []string{}
@@ -483,7 +483,7 @@ func buildTradeEmbed(analysis TradeAnalysis, verbose bool) *discordgo.MessageEmb
 					} else if sal, ok := p.GetSalary(year); ok {
 						if tp.RetentionPercent > 0 {
 							retained := tp.GetRetainedSalary(year)
-							contractYears = append(contractYears, fmt.Sprintf("%d: Total $%s (retain %.0f%% = $%s)", 
+							contractYears = append(contractYears, fmt.Sprintf("%d: Total $%s (retain %.0f%% = $%s)",
 								year, formatNumberShort(sal), tp.RetentionPercent, formatNumberShort(retained)))
 						} else {
 							contractYears = append(contractYears, fmt.Sprintf("%d: $%s", year, formatNumberShort(sal)))
@@ -495,7 +495,7 @@ func buildTradeEmbed(analysis TradeAnalysis, verbose bool) *discordgo.MessageEmb
 			if contractInfo == "" {
 				contractInfo = "No contract info"
 			}
-			
+
 			desc := fmt.Sprintf("• **%s** (%s)\n  %s | %s\n  %s",
 				p.Name, side2Team, p.Position, p.MLBTeam, contractInfo)
 			if tp.RetentionPercent > 0 {
@@ -508,7 +508,7 @@ func buildTradeEmbed(analysis TradeAnalysis, verbose bool) *discordgo.MessageEmb
 			if sal, ok := p.GetSalary(2025); ok {
 				if tp.RetentionPercent > 0 {
 					retained := tp.GetRetainedSalary(2025)
-					salary2025 = fmt.Sprintf("Total $%s (retain %.0f%% = $%s)", 
+					salary2025 = fmt.Sprintf("Total $%s (retain %.0f%% = $%s)",
 						formatNumberShort(sal), tp.RetentionPercent, formatNumberShort(retained))
 				} else {
 					salary2025 = "$" + formatNumberShort(sal)
@@ -520,7 +520,7 @@ func buildTradeEmbed(analysis TradeAnalysis, verbose bool) *discordgo.MessageEmb
 				p.Name, side2Team, p.Position, p.MLBTeam, salary2025))
 		}
 	}
-	
+
 	// Add cash if present
 	if analysis.Side2Cash > 0 {
 		side2Desc = append(side2Desc, fmt.Sprintf("• **Cash Considerations**\n  $%s", formatNumber(analysis.Side2Cash)))
@@ -550,7 +550,7 @@ func buildTradeEmbed(analysis TradeAnalysis, verbose bool) *discordgo.MessageEmb
 		// Show yearly breakdown for each team
 		for team, yearlyChanges := range analysis.YearlyPayrollChanges {
 			var yearlyDesc []string
-			
+
 			for year := 2025; year <= 2030; year++ {
 				if change, exists := yearlyChanges[year]; exists {
 					var changeStr string
@@ -564,7 +564,7 @@ func buildTradeEmbed(analysis TradeAnalysis, verbose bool) *discordgo.MessageEmb
 					yearlyDesc = append(yearlyDesc, fmt.Sprintf("%d: %s", year, changeStr))
 				}
 			}
-			
+
 			embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
 				Name:   fmt.Sprintf("%s Payroll Impact by Year", team),
 				Value:  strings.Join(yearlyDesc, " | "),

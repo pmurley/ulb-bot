@@ -29,10 +29,10 @@ func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageC
 	if len(args) == 1 && args[0] == "--list" {
 		players, err := hm.ensurePlayersLoaded()
 		if err != nil {
-			s.ChannelMessageSend(m.ChannelID, "Failed to load player data: " + err.Error())
+			s.ChannelMessageSend(m.ChannelID, "Failed to load player data: "+err.Error())
 			return
 		}
-		
+
 		allTeams := getAllTeamNames(players)
 		msg := fmt.Sprintf("**All Teams (%d):**\n", len(allTeams))
 		for _, team := range allTeams {
@@ -47,7 +47,7 @@ func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageC
 	filters := TeamFilters{
 		Status: "40-man", // Default to 40-man roster only
 	}
-	
+
 	for _, arg := range args {
 		if strings.HasPrefix(arg, "--") {
 			// Handle --contracts flag (no value needed)
@@ -55,7 +55,7 @@ func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageC
 				filters.ShowContracts = true
 				continue
 			}
-			
+
 			// Parse filter
 			parts := strings.SplitN(arg, "=", 2)
 			if len(parts) == 2 {
@@ -73,7 +73,7 @@ func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageC
 							if ageParts[0] != "" && ageParts[1] == "" {
 								fmt.Sscanf(ageParts[0], "%d", &filters.MaxAge)
 								filters.MinAge = 0
-							// Handle "20-25" (range)
+								// Handle "20-25" (range)
 							} else if ageParts[0] != "" && ageParts[1] != "" {
 								fmt.Sscanf(ageParts[0], "%d", &filters.MinAge)
 								fmt.Sscanf(ageParts[1], "%d", &filters.MaxAge)
@@ -97,7 +97,7 @@ func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageC
 			teamNameParts = append(teamNameParts, arg)
 		}
 	}
-	
+
 	if len(teamNameParts) == 0 {
 		s.ChannelMessageSend(m.ChannelID, "Please specify a team name")
 		return
@@ -108,26 +108,26 @@ func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageC
 	// Get players from cache (auto-reload if needed)
 	players, err := hm.ensurePlayersLoaded()
 	if err != nil {
-		s.ChannelMessageSend(m.ChannelID, "Failed to load player data: " + err.Error())
+		s.ChannelMessageSend(m.ChannelID, "Failed to load player data: "+err.Error())
 		return
 	}
 
 	// Find team (case-insensitive)
 	teamPlayers := players.FilterByTeam(teamName)
-	
+
 	if len(teamPlayers) == 0 {
 		// Try to find similar team names
 		allTeams := getAllTeamNames(players)
 		suggestions := findSimilarTeams(teamName, allTeams)
-		
+
 		hm.logger.Info("Team search: ", teamName, " found ", len(suggestions), " suggestions: ", suggestions)
-		
+
 		if len(suggestions) == 1 {
 			// Auto-select the single suggestion
 			teamName = suggestions[0]
 			teamPlayers = players.FilterByTeam(teamName)
 			hm.logger.Info("Auto-selected team: ", teamName, " with ", len(teamPlayers), " players")
-			
+
 			// Double-check we found players
 			if len(teamPlayers) == 0 {
 				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Team '%s' exists but has no players", teamName))
@@ -150,7 +150,7 @@ func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageC
 
 	// Apply filters
 	filteredPlayers := applyTeamFilters(teamPlayers, filters)
-	
+
 	if len(filteredPlayers) == 0 {
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("No players found for %s with the specified filters", teamName))
 		return
@@ -158,9 +158,9 @@ func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageC
 
 	// Build team roster embed
 	embed := buildTeamRosterEmbed(teamName, filteredPlayers, filters)
-	
+
 	hm.logger.Info("Sending embed for team: ", teamName, " with ", len(filteredPlayers), " players")
-	
+
 	_, err = s.ChannelMessageSendEmbed(m.ChannelID, embed)
 	if err != nil {
 		hm.logger.Error("Failed to send embed: ", err)
@@ -173,7 +173,7 @@ func (hm *HandlerManager) handleTeam(s *discordgo.Session, m *discordgo.MessageC
 // applyTeamFilters applies the specified filters to the player list
 func applyTeamFilters(players models.PlayerList, filters TeamFilters) models.PlayerList {
 	filtered := players
-	
+
 	// Filter by status
 	if filters.Status != "" && filters.Status != "all" {
 		var statusFiltered models.PlayerList
@@ -188,12 +188,12 @@ func applyTeamFilters(players models.PlayerList, filters TeamFilters) models.Pla
 		filtered = statusFiltered
 	}
 	// If status is "all", don't filter by status
-	
+
 	// Filter by position
 	if filters.Position != "" {
 		filtered = filtered.FilterByPosition(filters.Position)
 	}
-	
+
 	// Filter by age
 	if filters.MinAge > 0 || filters.MaxAge > 0 {
 		var ageFiltered models.PlayerList
@@ -208,7 +208,7 @@ func applyTeamFilters(players models.PlayerList, filters TeamFilters) models.Pla
 		}
 		filtered = ageFiltered
 	}
-	
+
 	return filtered
 }
 
@@ -217,17 +217,17 @@ func buildTeamRosterEmbed(teamName string, players models.PlayerList, filters Te
 	// Group players by position
 	positionGroups := make(map[string][]models.Player)
 	positionOrder := []string{"C", "1B", "2B", "3B", "SS", "MI", "OF", "DH", "UT", "SP", "RP"}
-	
+
 	for _, player := range players {
 		// Parse positions (could be comma-separated)
 		positions := strings.Split(player.Position, ",")
 		primaryPos := strings.TrimSpace(positions[0])
-		
+
 		// Normalize position grouping
 		if primaryPos == "LF" || primaryPos == "CF" || primaryPos == "RF" {
 			primaryPos = "OF"
 		}
-		
+
 		positionGroups[primaryPos] = append(positionGroups[primaryPos], player)
 	}
 
@@ -300,15 +300,15 @@ func buildTeamRosterEmbed(teamName string, players models.PlayerList, filters Te
 					} else if player.IsFreeAgent(year) {
 						salary2025 = "FA"
 					}
-					fieldValue += fmt.Sprintf("**%s** (%d, %s) - %s\n", 
+					fieldValue += fmt.Sprintf("**%s** (%d, %s) - %s\n",
 						player.Name, player.Age, player.MLBTeam, salary2025)
 				} else {
 					// Without contracts, just show name, age, and team
-					fieldValue += fmt.Sprintf("**%s** (%d, %s)\n", 
+					fieldValue += fmt.Sprintf("**%s** (%d, %s)\n",
 						player.Name, player.Age, player.MLBTeam)
 				}
 			}
-			
+
 			embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
 				Name:   fmt.Sprintf("%s (%d)", pos, len(players)),
 				Value:  fieldValue,
@@ -324,7 +324,7 @@ func buildTeamRosterEmbed(teamName string, players models.PlayerList, filters Te
 			unknownPos = append(unknownPos, player)
 		}
 	}
-	
+
 	if len(unknownPos) > 0 {
 		fieldValue := ""
 		for _, player := range unknownPos {
@@ -334,7 +334,7 @@ func buildTeamRosterEmbed(teamName string, players models.PlayerList, filters Te
 			}
 			fieldValue += fmt.Sprintf("**%s** - %s\n", player.Name, salary2025)
 		}
-		
+
 		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
 			Name:   fmt.Sprintf("Unknown Position (%d)", len(unknownPos)),
 			Value:  fieldValue,
@@ -344,7 +344,7 @@ func buildTeamRosterEmbed(teamName string, players models.PlayerList, filters Te
 
 	// Add footer with salary summary
 	embed.Footer = &discordgo.MessageEmbedFooter{
-		Text: fmt.Sprintf("Average Salary: $%s | Roster Size: %d", 
+		Text: fmt.Sprintf("Average Salary: $%s | Roster Size: %d",
 			formatNumber(totalPayroll/len(players)), len(players)),
 	}
 
@@ -359,7 +359,7 @@ func getAllTeamNames(players models.PlayerList) []string {
 			teamMap[player.ULBTeam] = true
 		}
 	}
-	
+
 	teams := make([]string, 0, len(teamMap))
 	for team := range teamMap {
 		teams = append(teams, team)
@@ -372,7 +372,7 @@ func getAllTeamNames(players models.PlayerList) []string {
 func findSimilarTeams(search string, allTeams []string) []string {
 	searchLower := strings.ToLower(search)
 	var matches []string
-	
+
 	for _, team := range allTeams {
 		teamLower := strings.ToLower(team)
 		// Check if team contains search string
@@ -382,12 +382,11 @@ func findSimilarTeams(search string, allTeams []string) []string {
 			matches = append(matches, team)
 		}
 	}
-	
+
 	// Limit to 5 suggestions
 	if len(matches) > 5 {
 		matches = matches[:5]
 	}
-	
+
 	return matches
 }
-
