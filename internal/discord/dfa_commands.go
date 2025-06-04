@@ -89,7 +89,10 @@ func (hm *HandlerManager) handleDFA(s *discordgo.Session, m *discordgo.MessageCr
 	}
 
 	if !isOwner {
-		response := fmt.Sprintf("You are not registered as an owner of the %s.", player.ULBTeam)
+		response := fmt.Sprintf("Player %s does not belong to a team in the database.", player.Name)
+		if player.ULBTeam != "" {
+			response = fmt.Sprintf("You are not registered as an owner of the %s.", player.ULBTeam)
+		}
 		if _, err := s.ChannelMessageSendReply(m.ChannelID, response, m.Reference()); err != nil {
 			hm.logger.Error("Failed to send ownership error message:", err)
 		}
