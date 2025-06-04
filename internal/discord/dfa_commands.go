@@ -11,10 +11,10 @@ import (
 )
 
 const (
-	//dfaWaiversChannelID = "1080917219204153395"
-	dfaWaiversChannelID = "1376062221699776543"
-	//waiverDuration      = 7 * 24 * time.Hour // 7 days
-	waiverDuration = time.Minute // 7 days
+	dfaWaiversChannelID = "1080917219204153395"
+	//dfaWaiversChannelID = "1376062221699776543"
+	waiverDuration = 8 * 24 * time.Hour // 7 days
+	//waiverDuration = time.Minute // 7 days
 )
 
 // handleDFA processes the !dfa command
@@ -48,10 +48,10 @@ func (hm *HandlerManager) handleDFA(s *discordgo.Session, m *discordgo.MessageCr
 	}
 
 	// Search for the player using the same logic as player commands
-	exactMatches := players.FindByExactName(playerName)
+	matches := players.SearchByName(playerName)
 
 	// Handle no matches
-	if len(exactMatches) == 0 {
+	if len(matches) == 0 {
 		response := fmt.Sprintf("No player found with name: %s", playerName)
 		if _, err := s.ChannelMessageSendReply(m.ChannelID, response, m.Reference()); err != nil {
 			hm.logger.Error("Failed to send no match message:", err)
@@ -60,9 +60,9 @@ func (hm *HandlerManager) handleDFA(s *discordgo.Session, m *discordgo.MessageCr
 	}
 
 	// Handle multiple matches
-	if len(exactMatches) > 1 {
+	if len(matches) > 1 {
 		var teamNames []string
-		for _, p := range exactMatches {
+		for _, p := range matches {
 			teamNames = append(teamNames, p.ULBTeam)
 		}
 		response := fmt.Sprintf("Multiple players found with name %s. Found on teams: %s\nPlease be more specific.",
@@ -74,7 +74,7 @@ func (hm *HandlerManager) handleDFA(s *discordgo.Session, m *discordgo.MessageCr
 	}
 
 	// We have exactly one match
-	player := exactMatches[0]
+	player := matches[0]
 
 	// Get the user's teams
 	userTeams := models.GetTeamsForOwner(m.Author.Username)
@@ -89,7 +89,7 @@ func (hm *HandlerManager) handleDFA(s *discordgo.Session, m *discordgo.MessageCr
 	}
 
 	if !isOwner {
-		response := fmt.Sprintf("You are not registered as an owner of %s.", player.ULBTeam)
+		response := fmt.Sprintf("You are not registered as an owner of the %s.", player.ULBTeam)
 		if _, err := s.ChannelMessageSendReply(m.ChannelID, response, m.Reference()); err != nil {
 			hm.logger.Error("Failed to send ownership error message:", err)
 		}
@@ -128,7 +128,7 @@ func (hm *HandlerManager) handleDFA(s *discordgo.Session, m *discordgo.MessageCr
 	}
 
 	// Send confirmation message
-	response := fmt.Sprintf("%s has been designated for assignment and placed on 7 day waivers. I will notify you after 7 days when the waiver period has expired.", player.Name)
+	response := fmt.Sprintf("%s has been designated for assignment and placed on waivers. I will notify you after 8 days when the waiver period has expired. Make sure you have dropped the player in Fantrax.", player.Name)
 	if _, err := s.ChannelMessageSendReply(m.ChannelID, response, m.Reference()); err != nil {
 		hm.logger.Error("Failed to send DFA confirmation:", err)
 	}

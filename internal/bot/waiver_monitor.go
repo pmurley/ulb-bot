@@ -9,7 +9,7 @@ import (
 	"github.com/pmurley/ulb-bot/internal/storage"
 )
 
-const waiverCheckInterval = 10 * time.Minute
+const waiverCheckInterval = 2 * time.Minute
 
 // startWaiverMonitor starts the background waiver monitoring process
 func (b *Bot) startWaiverMonitor() {
