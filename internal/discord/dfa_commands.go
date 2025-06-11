@@ -82,7 +82,8 @@ func (hm *HandlerManager) handleDFA(s *discordgo.Session, m *discordgo.MessageCr
 	// Check if user owns the player's team
 	isOwner := false
 	for _, team := range userTeams {
-		if team == player.ULBTeam {
+		if team == player.ULBTeam || strings.ToLower(m.Author.Username) == "tasm616" ||
+			strings.ToLower(m.Author.Username) == "cyclone852_19274" {
 			isOwner = true
 			break
 		}
