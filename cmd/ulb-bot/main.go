@@ -24,6 +24,7 @@ func main() {
 
 	log := logger.New(cfg.LogLevel)
 
+	log.Info("Starting ulb-bot")
 	b, err := bot.New(cfg, log)
 	if err != nil {
 		log.Fatal("Failed to create bot:", err)

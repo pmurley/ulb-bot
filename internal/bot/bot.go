@@ -34,11 +34,13 @@ func New(cfg *config.Config, log *logger.Logger) (*Bot, error) {
 		discordgo.IntentsDirectMessageReactions |
 		discordgo.IntentsMessageContent
 
+	log.Info("Creating Sheets client")
 	sheetsClient, err := sheets.NewClient(cfg.GoogleSheetsID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create sheets client: %w", err)
 	}
 
+	log.Info("Creating bot")
 	b := &Bot{
 		session:      session,
 		config:       cfg,
@@ -70,6 +72,9 @@ func (b *Bot) Start() error {
 
 	// Start waiver monitor
 	b.startWaiverMonitor()
+
+	// Start transaction monitor
+	b.startTransactionMonitor()
 
 	return nil
 }
