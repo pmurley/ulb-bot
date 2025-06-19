@@ -9,17 +9,19 @@ import (
 	"github.com/pmurley/ulb-bot/internal/config"
 	"github.com/pmurley/ulb-bot/internal/discord"
 	"github.com/pmurley/ulb-bot/internal/sheets"
+	"github.com/pmurley/ulb-bot/internal/spotrac"
 	"github.com/pmurley/ulb-bot/pkg/logger"
 )
 
 type Bot struct {
-	session      *discordgo.Session
-	config       *config.Config
-	logger       *logger.Logger
-	dataCache    *cache.Cache
-	sheetsClient *sheets.Client
-	handlers     *discord.HandlerManager
-	stopChan     chan struct{}
+	session       *discordgo.Session
+	config        *config.Config
+	logger        *logger.Logger
+	dataCache     *cache.Cache
+	sheetsClient  *sheets.Client
+	spotracClient *spotrac.Client
+	handlers      *discord.HandlerManager
+	stopChan      chan struct{}
 }
 
 func New(cfg *config.Config, log *logger.Logger) (*Bot, error) {
@@ -40,17 +42,21 @@ func New(cfg *config.Config, log *logger.Logger) (*Bot, error) {
 		return nil, fmt.Errorf("failed to create sheets client: %w", err)
 	}
 
+	log.Info("Creating Spotrac client")
+	spotracClient := spotrac.NewClient()
+
 	log.Info("Creating bot")
 	b := &Bot{
-		session:      session,
-		config:       cfg,
-		logger:       log,
-		dataCache:    cache.New(cfg.CacheDuration),
-		sheetsClient: sheetsClient,
-		stopChan:     make(chan struct{}),
+		session:       session,
+		config:        cfg,
+		logger:        log,
+		dataCache:     cache.New(cfg.CacheDuration),
+		sheetsClient:  sheetsClient,
+		spotracClient: spotracClient,
+		stopChan:      make(chan struct{}),
 	}
 
-	b.handlers = discord.NewHandlerManager(b.session, cfg, log, b.dataCache, sheetsClient)
+	b.handlers = discord.NewHandlerManager(b.session, cfg, log, b.dataCache, sheetsClient, spotracClient)
 
 	return b, nil
 }

@@ -9,16 +9,18 @@ import (
 	"github.com/pmurley/ulb-bot/internal/config"
 	"github.com/pmurley/ulb-bot/internal/models"
 	"github.com/pmurley/ulb-bot/internal/sheets"
+	"github.com/pmurley/ulb-bot/internal/spotrac"
 	"github.com/pmurley/ulb-bot/pkg/logger"
 )
 
 type HandlerManager struct {
-	session      *discordgo.Session
-	config       *config.Config
-	logger       *logger.Logger
-	cache        *cache.Cache
-	sheetsClient *sheets.Client
-	commands     map[string]CommandHandler
+	session       *discordgo.Session
+	config        *config.Config
+	logger        *logger.Logger
+	cache         *cache.Cache
+	sheetsClient  *sheets.Client
+	spotracClient *spotrac.Client
+	commands      map[string]CommandHandler
 }
 
 type CommandHandler func(s *discordgo.Session, m *discordgo.MessageCreate, args []string)
@@ -29,14 +31,16 @@ func NewHandlerManager(
 	logger *logger.Logger,
 	cache *cache.Cache,
 	sheetsClient *sheets.Client,
+	spotracClient *spotrac.Client,
 ) *HandlerManager {
 	hm := &HandlerManager{
-		session:      session,
-		config:       config,
-		logger:       logger,
-		cache:        cache,
-		sheetsClient: sheetsClient,
-		commands:     make(map[string]CommandHandler),
+		session:       session,
+		config:        config,
+		logger:        logger,
+		cache:         cache,
+		sheetsClient:  sheetsClient,
+		spotracClient: spotracClient,
+		commands:      make(map[string]CommandHandler),
 	}
 
 	hm.registerCommands()
@@ -56,6 +60,7 @@ func (hm *HandlerManager) registerCommands() {
 	hm.commands["trade"] = hm.handleTrade
 	hm.commands["team"] = hm.handleTeam
 	hm.commands["dfa"] = hm.handleDFA
+	hm.commands["spotrac"] = hm.handleSpotrac
 }
 
 func (hm *HandlerManager) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -91,6 +96,7 @@ func (hm *HandlerManager) handleHelp(s *discordgo.Session, m *discordgo.MessageC
 !reload        - Force reload data from Google Sheets
 !player <name> - Look up player information
 !players <name1>, <name2>, ... - Look up multiple players
+!spotrac <name> - Look up player contract information from Spotrac
 !team <name>   - Show team roster and payroll (defaults to 40-man roster)
   Options:
     --status=<40-man|minors|all> - Filter by roster status (default: 40-man)
