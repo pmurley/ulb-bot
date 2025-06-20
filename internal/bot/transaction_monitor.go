@@ -16,6 +16,8 @@ const (
 	transactionCheckInterval = 2 * time.Minute
 	waiverChannelName        = "dfa-waivers"
 	tradeChannelName         = "trades"
+	promotionsChannelName    = "40-man-promotions"
+	signingsChannelName      = "signings"
 )
 
 // startTransactionMonitor starts the background transaction monitoring process
@@ -107,6 +109,8 @@ func (b *Bot) checkNewTransactions() {
 		} else {
 			// For trade transactions, group by TradeGroupID and check if we've seen the group
 			if tx.TradeGroupID != "" && !existingTradeGroupIDs[tx.TradeGroupID] {
+				// Add to newTradeGroups - this automatically handles grouping multiple transactions
+				// with the same TradeGroupID together
 				newTradeGroups[tx.TradeGroupID] = append(newTradeGroups[tx.TradeGroupID], tx)
 			}
 		}
@@ -141,11 +145,12 @@ func (b *Bot) checkNewTransactions() {
 	}
 }
 
-// postTransactionToDiscord posts a single transaction to the bot-testing channel
+// postTransactionToDiscord posts a single transaction to the appropriate channel
 func (b *Bot) postTransactionToDiscord(tx models.Transaction) {
-	channelID := b.findChannelByName(waiverChannelName)
+	channelName := b.getChannelForTransaction(tx)
+	channelID := b.findChannelByName(channelName)
 	if channelID == "" {
-		b.logger.Error("Could not find bot-testing channel")
+		b.logger.Error("Could not find channel:", channelName)
 		return
 	}
 
@@ -179,15 +184,47 @@ func (b *Bot) createTransactionEmbed(tx models.Transaction) *discordgo.MessageEm
 	var title string
 	var description strings.Builder
 
+	// Check if executed by commissioner
+	isCommissioner := strings.ToLower(tx.ExecutedBy) == "commissioner"
+
 	switch tx.Type {
 	case "CLAIM":
-		color = 0x00ff00 // Green
-		title = "🔄 Waiver Claim"
-		description.WriteString(fmt.Sprintf("**%s** claimed **%s** (%s - %s)",
-			tx.TeamName, tx.PlayerName, tx.PlayerPosition, tx.PlayerTeam))
-		if tx.BidAmount != "" {
-			description.WriteString(fmt.Sprintf("\n💰 Bid Amount: $%s", tx.BidAmount))
+		switch tx.ClaimType {
+		case "FA": // Free Agent
+			if isCommissioner {
+				color = 0x9932cc // Purple for 40-man promotion
+				title = "⬆️ 40-Man Promotion"
+				description.WriteString(fmt.Sprintf("**%s** promoted **%s** (%s - %s) to 40-man roster",
+					tx.TeamName, tx.PlayerName, tx.PlayerPosition, tx.PlayerTeam))
+			} else {
+				color = 0x00ff00 // Green for free agent signing
+				title = "✍️ Free Agent Signing"
+				description.WriteString(fmt.Sprintf("**%s** signed **%s** (%s - %s)",
+					tx.TeamName, tx.PlayerName, tx.PlayerPosition, tx.PlayerTeam))
+				if tx.BidAmount != "" {
+					description.WriteString(fmt.Sprintf("\n💰 Bid Amount: $%s", tx.BidAmount))
+				}
+			}
+		case "WW": // Waiver Wire
+			if isCommissioner {
+				color = 0x9932cc // Purple for 40-man promotion
+				title = "⬆️ 40-Man Promotion"
+				description.WriteString(fmt.Sprintf("**%s** promoted **%s** (%s - %s) to 40-man roster",
+					tx.TeamName, tx.PlayerName, tx.PlayerPosition, tx.PlayerTeam))
+			} else {
+				color = 0x00ff00 // Green for waiver claim
+				title = "🔄 Waiver Claim"
+				description.WriteString(fmt.Sprintf("**%s** claimed **%s** (%s - %s)",
+					tx.TeamName, tx.PlayerName, tx.PlayerPosition, tx.PlayerTeam))
+			}
+		default:
+			// For backwards compatibility
+			color = 0x00ff00 // Green
+			title = "🔄 Waiver Claim (Transaction Type: " + tx.ClaimType + ")"
+			description.WriteString(fmt.Sprintf("**%s** claimed **%s** (%s - %s)",
+				tx.TeamName, tx.PlayerName, tx.PlayerPosition, tx.PlayerTeam))
 		}
+
 	case "DROP":
 		color = 0xff0000 // Red
 		title = "❌ Player Drop"
@@ -291,6 +328,39 @@ func (b *Bot) findChannelByName(channelName string) string {
 		}
 	}
 	return ""
+}
+
+// getChannelForTransaction determines the appropriate Discord channel for a transaction
+func (b *Bot) getChannelForTransaction(tx models.Transaction) string {
+	// Check if executed by commissioner (case-insensitive)
+	isCommissioner := strings.ToLower(tx.ExecutedBy) == "commissioner"
+
+	switch tx.Type {
+	case "CLAIM":
+		switch tx.ClaimType {
+		case "FA": // Free Agent
+			if isCommissioner {
+				return promotionsChannelName // 40-man promotion
+			}
+			return signingsChannelName // Real free agent signing
+		case "WW": // Waiver Wire
+			if isCommissioner {
+				return promotionsChannelName // 40-man promotion
+			}
+			return waiverChannelName // True waiver claim
+		default:
+			// For backwards compatibility with old records without ClaimType
+			return waiverChannelName
+		}
+	case "DROP":
+		// All drops go to the same channel regardless of claim type
+		return waiverChannelName
+	case "TRADE":
+		return tradeChannelName
+	default:
+		// Default to waivers for unknown transaction types
+		return waiverChannelName
+	}
 }
 
 // initializeTransactionStorage populates the CSV with all historical transactions without posting to Discord
