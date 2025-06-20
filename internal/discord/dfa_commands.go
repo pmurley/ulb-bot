@@ -59,46 +59,47 @@ func (hm *HandlerManager) handleDFA(s *discordgo.Session, m *discordgo.MessageCr
 		return
 	}
 
-	// Handle multiple matches
-	if len(matches) > 1 {
-		var teamNames []string
-		for _, p := range matches {
-			teamNames = append(teamNames, p.ULBTeam)
-		}
-		response := fmt.Sprintf("Multiple players found with name %s. Found on teams: %s\nPlease be more specific.",
-			playerName, strings.Join(teamNames, ", "))
-		if _, err := s.ChannelMessageSendReply(m.ChannelID, response, m.Reference()); err != nil {
-			hm.logger.Error("Failed to send multiple matches message:", err)
-		}
-		return
-	}
-
-	// We have exactly one match
-	player := matches[0]
-
 	// Get the user's teams
 	userTeams := models.GetTeamsForOwner(m.Author.Username)
 
-	// Check if user owns the player's team
-	isOwner := false
-	for _, team := range userTeams {
-		if team == player.ULBTeam || strings.ToLower(m.Author.Username) == "tasm616" ||
-			strings.ToLower(m.Author.Username) == "cyclone852_19274" {
-			isOwner = true
-			break
+	// Check for super user powers
+	isSuperUser := strings.ToLower(m.Author.Username) == "tasm616" ||
+		strings.ToLower(m.Author.Username) == "cyclone852_19274"
+
+	// Filter matches to only players on user's teams (or all if super user)
+	var userPlayerMatches models.PlayerList
+	for _, p := range matches {
+		if isSuperUser {
+			userPlayerMatches = append(userPlayerMatches, p)
+		} else {
+			for _, team := range userTeams {
+				if p.ULBTeam == team {
+					userPlayerMatches = append(userPlayerMatches, p)
+					break
+				}
+			}
 		}
 	}
 
-	if !isOwner {
-		response := fmt.Sprintf("Player %s does not belong to a team in the database.", player.Name)
-		if player.ULBTeam != "" {
-			response = fmt.Sprintf("You are not registered as an owner of the %s.", player.ULBTeam)
+	// Handle no matches on user's teams
+	if len(userPlayerMatches) == 0 {
+		var response string
+		if len(matches) == 1 {
+			response = fmt.Sprintf("Player %s does not belong to a team you own.", matches[0].Name)
+			if matches[0].ULBTeam != "" {
+				response = fmt.Sprintf("Player %s belongs to %s, which you do not own.", matches[0].Name, matches[0].ULBTeam)
+			}
+		} else {
+			response = fmt.Sprintf("Found %d players matching '%s', but none belong to your teams.", len(matches), playerName)
 		}
 		if _, err := s.ChannelMessageSendReply(m.ChannelID, response, m.Reference()); err != nil {
-			hm.logger.Error("Failed to send ownership error message:", err)
+			hm.logger.Error("Failed to send no owned match message:", err)
 		}
 		return
 	}
+
+	// Just pick the first match on user's teams
+	player := userPlayerMatches[0]
 
 	// Create waiver storage instance
 	waiverStorage, err := storage.NewWaiverStorage()

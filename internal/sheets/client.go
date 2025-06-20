@@ -80,7 +80,7 @@ func (c *Client) LoadMasterPlayerPool() ([]models.Player, error) {
 // GetSheetDataCSV fetches data from a specific sheet tab as CSV with retry logic
 func (c *Client) GetSheetDataCSV(gid string) ([][]string, error) {
 	url := fmt.Sprintf("https://docs.google.com/spreadsheets/d/%s/export?format=csv&gid=%s", c.spreadsheetID, gid)
-	
+
 	return c.fetchWithRetry(url)
 }
 
@@ -88,16 +88,16 @@ func (c *Client) GetSheetDataCSV(gid string) ([][]string, error) {
 func (c *Client) fetchWithRetry(url string) ([][]string, error) {
 	maxRetries := 3
 	baseDelay := 5 * time.Second
-	
+
 	var lastErr error
-	
+
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
 			delay := baseDelay * time.Duration(1<<(attempt-1)) // Exponential backoff: 5s, 10s, 20s
 			fmt.Printf("Retrying sheet fetch in %v (attempt %d of %d)\n", delay, attempt+1, maxRetries+1)
 			time.Sleep(delay)
 		}
-		
+
 		resp, err := c.httpClient.Get(url)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to fetch sheet data: %w", err)
@@ -129,9 +129,9 @@ func (c *Client) fetchWithRetry(url string) ([][]string, error) {
 			}
 			data = append(data, record)
 		}
-		
+
 		resp.Body.Close()
-		
+
 		// If we got here and data was read successfully, return it
 		if !csvErr && len(data) > 0 {
 			if attempt > 0 {
@@ -140,6 +140,6 @@ func (c *Client) fetchWithRetry(url string) ([][]string, error) {
 			return data, nil
 		}
 	}
-	
+
 	return nil, fmt.Errorf("failed to fetch sheet data after %d retries: %w", maxRetries+1, lastErr)
 }
