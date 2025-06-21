@@ -9,15 +9,24 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pmurley/go-fantrax/models"
 	"github.com/pmurley/ulb-bot/internal/fantrax"
+	ulbmodels "github.com/pmurley/ulb-bot/internal/models"
 	"github.com/pmurley/ulb-bot/internal/storage"
 )
 
 const (
-	transactionCheckInterval = 2 * time.Minute
+	transactionCheckInterval = 1 * time.Minute
 	waiverChannelName        = "dfa-waivers"
 	tradeChannelName         = "trades"
 	promotionsChannelName    = "40-man-promotions"
 	signingsChannelName      = "signings"
+	waiverDuration           = 8 * 24 * time.Hour // 8 days
+	//waiverDuration        = 8 * 24 * time.Hour // 8 days
+	//transactionCheckInterval = 11 * time.Second
+	//waiverChannelName        = "bot-testing"
+	//tradeChannelName         = "bot-testing"
+	//promotionsChannelName    = "bot-testing"
+	//signingsChannelName      = "bot-testing"
+	//waiverDuration           = 30 * time.Second // 8 days
 )
 
 // startTransactionMonitor starts the background transaction monitoring process
@@ -156,9 +165,15 @@ func (b *Bot) postTransactionToDiscord(tx models.Transaction) {
 
 	embed := b.createTransactionEmbed(tx)
 
-	_, err := b.session.ChannelMessageSendEmbed(channelID, embed)
+	message, err := b.session.ChannelMessageSendEmbed(channelID, embed)
 	if err != nil {
 		b.logger.Error("Failed to send transaction message to Discord:", err)
+		return
+	}
+
+	// If this is a DROP transaction, create automatic waiver entries
+	if tx.Type == "DROP" {
+		b.createAutomaticWaiverEntries(tx, message.ID, channelID)
 	}
 }
 
@@ -228,8 +243,24 @@ func (b *Bot) createTransactionEmbed(tx models.Transaction) *discordgo.MessageEm
 	case "DROP":
 		color = 0xff0000 // Red
 		title = "❌ Player Drop"
-		description.WriteString(fmt.Sprintf("**%s** dropped **%s** (%s - %s)",
+		description.WriteString(fmt.Sprintf("**%s** designated **%s** (%s - %s) for assignment.\n",
 			tx.TeamName, tx.PlayerName, tx.PlayerPosition, tx.PlayerTeam))
+
+		// Add team owner mentions
+		teamOwnerUsernames := ulbmodels.GetTeamOwners(tx.TeamName)
+		if len(teamOwnerUsernames) > 0 {
+			description.WriteString("\n⏰  ")
+			for i, ownerUsername := range teamOwnerUsernames {
+				if i > 0 {
+					description.WriteString(" ")
+				}
+				// Convert username to user ID for proper mentions
+				userID := ulbmodels.GetUserIDFromUsername(ownerUsername)
+				description.WriteString(fmt.Sprintf("<@%s>", userID))
+			}
+		}
+		description.WriteString(" will be notified when the DFA period expires.")
+
 	default:
 		color = 0x0099ff // Blue
 		title = fmt.Sprintf("📋 %s Transaction", tx.Type)
@@ -409,4 +440,45 @@ func (b *Bot) initializeTransactionStorage(transactionStorage *storage.Transacti
 	}
 	b.logger.Info("  Trade groups:", len(tradeGroups))
 	b.logger.Info("Future transaction monitoring will only post new transactions to Discord")
+}
+
+// createAutomaticWaiverEntries creates waiver entries for all owners of the team that dropped a player
+func (b *Bot) createAutomaticWaiverEntries(tx models.Transaction, messageID, channelID string) {
+	// Get team owners (usernames)
+	teamOwnerUsernames := ulbmodels.GetTeamOwners(tx.TeamName)
+	if len(teamOwnerUsernames) == 0 {
+		b.logger.Warn("No owners found for team:", tx.TeamName)
+		return
+	}
+
+	// Create waiver storage instance
+	waiverStorage, err := storage.NewWaiverStorage()
+	if err != nil {
+		b.logger.Error("Failed to create waiver storage for automatic DFA:", err)
+		return
+	}
+
+	// Create waiver entries for each team owner
+	now := time.Now()
+	for _, ownerUsername := range teamOwnerUsernames {
+		// Convert username to user ID
+		userID := ulbmodels.GetUserIDFromUsername(ownerUsername)
+
+		waiver := &ulbmodels.Waiver{
+			PlayerName: tx.PlayerName,
+			TeamName:   tx.TeamName,
+			UserID:     userID,
+			StartTime:  now,
+			EndTime:    now.Add(waiverDuration),
+			MessageID:  messageID,
+			ChannelID:  channelID,
+			Processed:  false,
+		}
+
+		if err := waiverStorage.AddWaiver(waiver); err != nil {
+			b.logger.Error("Failed to create automatic waiver entry for player", tx.PlayerName, "and owner", ownerUsername, ":", err)
+		} else {
+			b.logger.Info("Created automatic waiver entry for", tx.PlayerName, "owned by", ownerUsername)
+		}
+	}
 }
