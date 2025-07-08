@@ -2,6 +2,8 @@ package discord
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -61,6 +63,7 @@ func (hm *HandlerManager) registerCommands() {
 	hm.commands["team"] = hm.handleTeam
 	hm.commands["dfa"] = hm.handleDFA
 	hm.commands["spotrac"] = hm.handleSpotrac
+	hm.commands["getfile"] = hm.handleGetFile
 }
 
 func (hm *HandlerManager) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -141,4 +144,58 @@ func (hm *HandlerManager) ensurePlayersLoaded() (models.PlayerList, error) {
 		return nil, fmt.Errorf("player data not available yet, please try again in a moment")
 	}
 	return players, nil
+}
+
+func (hm *HandlerManager) handleGetFile(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
+	if len(args) < 1 {
+		s.ChannelMessageSend(m.ChannelID, "Usage: !getfile <filepath>")
+		return
+	}
+
+	filePath := strings.Join(args, " ")
+
+	// Clean the path to prevent directory traversal
+	cleanPath := filepath.Clean(filePath)
+
+	// Check if file exists
+	fileInfo, err := os.Stat(cleanPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			s.ChannelMessageSend(m.ChannelID, "File not found: "+cleanPath)
+		} else {
+			s.ChannelMessageSend(m.ChannelID, "Error accessing file: "+err.Error())
+		}
+		return
+	}
+
+	// Check if it's a directory
+	if fileInfo.IsDir() {
+		s.ChannelMessageSend(m.ChannelID, "Cannot send a directory")
+		return
+	}
+
+	// Check file size (Discord has a limit of 8MB for free servers, 50MB for boosted)
+	const maxFileSize = 8 * 1024 * 1024 // 8MB
+	if fileInfo.Size() > maxFileSize {
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("File too large (%d bytes). Maximum size is %d bytes", fileInfo.Size(), maxFileSize))
+		return
+	}
+
+	// Open the file
+	file, err := os.Open(cleanPath)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "Failed to open file: "+err.Error())
+		return
+	}
+	defer file.Close()
+
+	// Send the file
+	_, err = s.ChannelFileSend(m.ChannelID, filepath.Base(cleanPath), file)
+	if err != nil {
+		hm.logger.Error("Failed to send file: ", err)
+		s.ChannelMessageSend(m.ChannelID, "Failed to send file: "+err.Error())
+		return
+	}
+
+	hm.logger.Info("File sent successfully: ", cleanPath)
 }
