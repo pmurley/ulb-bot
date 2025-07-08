@@ -28,11 +28,7 @@ func NewClient(spreadsheetID string) (*Client, error) {
 
 // Sheet GIDs
 const (
-	StandingsGID    = "633435137"
 	MasterPlayerGID = "286507798"
-	AccountingGID   = "396888711"
-	SalaryGID       = "1669990835"
-	DeadMoneyGID    = "36423663"
 )
 
 func (c *Client) LoadInitialData(cache *cache.Cache) error {
