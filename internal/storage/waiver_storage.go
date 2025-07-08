@@ -170,13 +170,12 @@ func (ws *WaiverStorage) MarkWaiverProcessed(messageID string) error {
 	}
 	file.Close()
 
-	// Update the processed flag for matching waiver
+	// Update the processed flag for all matching waivers
 	updated := false
 	for i := 1; i < len(records); i++ {
 		if len(records[i]) >= 8 && records[i][5] == messageID {
 			records[i][7] = "true"
 			updated = true
-			break
 		}
 	}
 
